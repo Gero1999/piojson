@@ -36,7 +36,7 @@ class TestDatasetJSON(unittest.TestCase):
         self.assertEqual(self.df.iloc[2]["AGE"], 47)
 
     def test_read_datasetjson_metadata(self):
-        self.assertIsInstance(self.ds, datasetjson.datasetjson)
+        self.assertIsInstance(self.ds, datasetjson.DatasetJSON)
         self.assertEqual(self.ds.metadata["name"], "DM")
         self.assertEqual(self.ds.metadata["label"], "Demographics")
         self.assertEqual(self.ds.metadata["studyOID"], "example.org/STUDYMOCK01")

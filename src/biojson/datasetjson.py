@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -6,23 +7,13 @@ import pandas as pd
 
 
 @dataclass
-class datasetjson:
+class DatasetJSON:
     df: pd.DataFrame
     metadata: dict
     columns_metadata: list
 
-    def __getattr__(self, name):
-        return getattr(self.df, name)
-
-    def __getitem__(self, key):
-        return self.df[key]
-
-    @property
-    def attrs(self):
-        return self.df.attrs
-
     def to_dict(self):
-        data = dict(self.metadata)
+        data = deepcopy(self.metadata)
         data["records"] = len(self.df)
         data["columns"] = self.columns_metadata
         df_to_write = self.df.copy()
@@ -34,7 +25,6 @@ class datasetjson:
                 df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%S")
         data["rows"] = df_to_write.where(pd.notnull(df_to_write), None).values.tolist()
         return data
-
 
 def read_datasetjson(file_path):
     with open(file_path, "r") as f:
@@ -70,8 +60,8 @@ def read_datasetjson(file_path):
             df[col] = df[col].astype("string")
 
     df.attrs["labels"] = dict(zip(columns, labels))
-    metadata = {k: v for k, v in data.items() if k not in ["columns", "rows"]}
-    return datasetjson(df=df, metadata=metadata, columns_metadata=columns_metadata)
+    metadata = {k: v for k, v in data.items() if k not in ["columns", "rows", "records"]}
+    return DatasetJSON(df=df, metadata=metadata, columns_metadata=columns_metadata)
 
 
 def write_datasetjson(
@@ -86,7 +76,7 @@ def write_datasetjson(
     metaDataRef=None,
     itemGroupOID=None,
 ):
-    if isinstance(df, datasetjson):
+    if isinstance(df, DatasetJSON):
         with open(file_path, "w") as f:
             json.dump(df.to_dict(), f, indent=4)
         return
