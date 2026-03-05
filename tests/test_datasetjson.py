@@ -54,10 +54,21 @@ class TestDatasetJSON(unittest.TestCase):
         self.assertEqual(df2.iloc[0]["STUDYID"], self.df.iloc[0]["STUDYID"])
         self.assertEqual(df2.iloc[1]["COUNTRY"], self.df.iloc[1]["COUNTRY"])
         self.assertEqual(df2.iloc[2]["AGE"], self.df.iloc[2]["AGE"])
-        self.assertEqual(ds2.metadata["name"], self.ds.metadata["name"])
+        self.assertEqual(ds2.metadata["studyOID"], self.ds.metadata["studyOID"])
         self.assertEqual(ds2.metadata["label"], self.ds.metadata["label"])
         # Clean up
         os.remove(tmp_path)
+
+    def test_write_datasetjson_rejects_unsupported_metadata_version(self):
+        tmp_path = TEST_DIR / "data/tmp_invalid_version_datasetjson_dm.json"
+        ds_invalid = datasetjson.DatasetJSON(
+            df=self.ds.df,
+            metadata={**self.ds.metadata, "datasetJSONVersion": "2.0.0"},
+            columns_metadata=self.ds.columns_metadata,
+        )
+
+        with self.assertRaises(ValueError):
+            datasetjson.write_datasetjson(ds_invalid, tmp_path)
 
 if __name__ == "__main__":
     unittest.main()

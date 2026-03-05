@@ -10,7 +10,7 @@ import pandas as pd
 class DatasetJSON:
     df: pd.DataFrame
     metadata: dict
-    columns_metadata: list
+    columns_metadata: list[dict]
 
     def to_dict(self):
         data = deepcopy(self.metadata)
@@ -21,7 +21,20 @@ class DatasetJSON:
         for col, dtype in datatypes.items():
             if dtype == "date":
                 df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%d")
-            elif dtype == "datetime":
+            def to_dict(self):
+                data = deepcopy(self.metadata)
+                data["datasetJSONCreationDateTime"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+                data["records"] = len(self.df)
+                data["columns"] = self.columns_metadata
+                df_to_write = self.df.copy()
+                datatypes = {col["name"]: col.get("dataType", "string") for col in self.columns_metadata}
+                for col, dtype in datatypes.items():
+                    if dtype == "date":
+                        df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%d")
+                    elif dtype == "datetime":
+                        df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%S")
+                data["rows"] = df_to_write.where(pd.notnull(df_to_write), None).values.tolist()
+                return data
                 df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%S")
         data["rows"] = df_to_write.where(pd.notnull(df_to_write), None).values.tolist()
         return data
@@ -77,6 +90,16 @@ def write_datasetjson(
     itemGroupOID=None,
 ):
     if isinstance(df, DatasetJSON):
+        metadata_version = None
+        try:
+            if isinstance(df.metadata, dict):
+                metadata_version = df.metadata.get("datasetJSONVersion")
+        except AttributeError:
+            metadata_version = None
+
+        if metadata_version is not None and metadata_version != "1.1.0":
+            raise ValueError("Only datasetJSON version 1.1.0 is supported.")
+
         with open(file_path, "w") as f:
             json.dump(df.to_dict(), f, indent=4)
         return
