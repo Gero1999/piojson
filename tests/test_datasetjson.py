@@ -56,6 +56,7 @@ class TestDatasetJSON(unittest.TestCase):
         self.assertEqual(df2.iloc[2]["AGE"], self.df.iloc[2]["AGE"])
         self.assertEqual(ds2.metadata["studyOID"], self.ds.metadata["studyOID"])
         self.assertEqual(ds2.metadata["label"], self.ds.metadata["label"])
+        self.assertEqual(ds2.metadata["studyOID"], self.ds.metadata["studyOID"])
         # Clean up
         os.remove(tmp_path)
 
