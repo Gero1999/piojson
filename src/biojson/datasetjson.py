@@ -99,16 +99,6 @@ def write_datasetjson(
             metadata_version = None
         if metadata_version is not None and metadata_version != "1.1.0":
             raise ValueError("Only datasetJSON version 1.1.0 is supported.")
-        metadata_version = None
-        try:
-            if isinstance(df.metadata, dict):
-                metadata_version = df.metadata.get("datasetJSONVersion")
-        except AttributeError:
-            metadata_version = None
-
-        if metadata_version is not None and metadata_version != "1.1.0":
-            raise ValueError("Only datasetJSON version 1.1.0 is supported.")
-
         with open(file_path, "w") as f:
             json.dump(df.to_dict(), f, indent=4)
         return
