@@ -14,6 +14,7 @@ class DatasetJSON:
 
     def to_dict(self):
         data = deepcopy(self.metadata)
+        data["datasetJSONCreationDateTime"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         data["records"] = len(self.df)
         data["columns"] = self.columns_metadata
         df_to_write = self.df.copy()
@@ -21,20 +22,7 @@ class DatasetJSON:
         for col, dtype in datatypes.items():
             if dtype == "date":
                 df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%d")
-            def to_dict(self):
-                data = deepcopy(self.metadata)
-                data["datasetJSONCreationDateTime"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-                data["records"] = len(self.df)
-                data["columns"] = self.columns_metadata
-                df_to_write = self.df.copy()
-                datatypes = {col["name"]: col.get("dataType", "string") for col in self.columns_metadata}
-                for col, dtype in datatypes.items():
-                    if dtype == "date":
-                        df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%d")
-                    elif dtype == "datetime":
-                        df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%S")
-                data["rows"] = df_to_write.where(pd.notnull(df_to_write), None).values.tolist()
-                return data
+            elif dtype == "datetime":
                 df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%S")
         data["rows"] = df_to_write.where(pd.notnull(df_to_write), None).values.tolist()
         return data
