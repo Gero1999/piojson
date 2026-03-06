@@ -14,7 +14,8 @@ DM_PATH = TEST_DIR / "data/datasetjson_dm.json"
 class TestDatasetJSON(unittest.TestCase):
     def setUp(self):
         self.dm_path = DM_PATH
-        self.df = datasetjson.read_datasetjson(self.dm_path)
+        self.ds = datasetjson.read_datasetjson(self.dm_path)
+        self.df = self.ds.df
 
     def test_read_datasetjson_types(self):
         # Check columns exist
@@ -34,11 +35,18 @@ class TestDatasetJSON(unittest.TestCase):
         self.assertEqual(self.df.iloc[1]["COUNTRY"], "CAN")
         self.assertEqual(self.df.iloc[2]["AGE"], 47)
 
+    def test_read_datasetjson_metadata(self):
+        self.assertIsInstance(self.ds, datasetjson.DatasetJSON)
+        self.assertEqual(self.ds.metadata["name"], "DM")
+        self.assertEqual(self.ds.metadata["label"], "Demographics")
+        self.assertEqual(self.ds.metadata["studyOID"], "example.org/STUDYMOCK01")
+
     def test_write_and_read_roundtrip(self):
         # Write to a temp file and read back
         tmp_path = TEST_DIR / "data/tmp_datasetjson_dm.json"
-        datasetjson.write_datasetjson(self.df, tmp_path, name="DM", label="Demographics", studyOID="example.org/STUDYMOCK01", itemGroupOID="DM")
-        df2 = datasetjson.read_datasetjson(tmp_path)
+        datasetjson.write_datasetjson(self.ds, tmp_path)
+        ds2 = datasetjson.read_datasetjson(tmp_path)
+        df2 = ds2.df
         # Check shape and columns
         self.assertListEqual(list(df2.columns), list(self.df.columns))
         self.assertEqual(df2.shape, self.df.shape)
@@ -46,9 +54,26 @@ class TestDatasetJSON(unittest.TestCase):
         self.assertEqual(df2.iloc[0]["STUDYID"], self.df.iloc[0]["STUDYID"])
         self.assertEqual(df2.iloc[1]["COUNTRY"], self.df.iloc[1]["COUNTRY"])
         self.assertEqual(df2.iloc[2]["AGE"], self.df.iloc[2]["AGE"])
+        self.assertEqual(ds2.metadata["studyOID"], self.ds.metadata["studyOID"])
+        self.assertEqual(ds2.metadata["label"], self.ds.metadata["label"])
+        self.assertEqual(ds2.metadata["name"], self.ds.metadata["name"])
         # Clean up
         os.remove(tmp_path)
 
+    def test_write_datasetjson_rejects_unsupported_metadata_version(self):
+        tmp_path = TEST_DIR / "data/tmp_invalid_version_datasetjson_dm.json"
+        ds_invalid = datasetjson.DatasetJSON(
+            df=self.ds.df,
+            metadata={**self.ds.metadata, "datasetJSONVersion": "2.0.0"},
+            columns_metadata=self.ds.columns_metadata,
+        )
+
+        try:
+            with self.assertRaises(ValueError):
+                datasetjson.write_datasetjson(ds_invalid, tmp_path)
+        finally:
+            if tmp_path.exists():
+                os.remove(tmp_path)
+
 if __name__ == "__main__":
     unittest.main()
-

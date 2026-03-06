@@ -1,42 +1,100 @@
+import json
+from copy import deepcopy
+from dataclasses import dataclass
+from datetime import datetime
+
+import pandas as pd
+
+
+@dataclass
+class DatasetJSON:
+    df: pd.DataFrame
+    metadata: dict
+    columns_metadata: list[dict]
+
+    def to_dict(self):
+        data = deepcopy(self.metadata)
+        data["datasetJSONCreationDateTime"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        data["records"] = len(self.df)
+        data["columns"] = self.columns_metadata
+        df_to_write = self.df.copy()
+        datatypes = {col["name"]: col.get("dataType", "string") for col in self.columns_metadata}
+        for col, dtype in datatypes.items():
+            if dtype == "date":
+                df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%d")
+            elif dtype == "datetime":
+                df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%S")
+        data["rows"] = df_to_write.where(pd.notnull(df_to_write), None).values.tolist()
+        return data
+
 def read_datasetjson(file_path):
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         data = json.load(f)
 
-    columns = [col['name'] for col in data['columns']]
-    rows = data['rows']
-    labels = [col['label'] for col in data['columns']]
-    datatypes = {col['name']: col.get('dataType', 'string') for col in data['columns']}
+    columns_metadata = data["columns"]
+    columns = [col["name"] for col in columns_metadata]
+    rows = data["rows"]
+    labels = [col["label"] for col in columns_metadata]
+    datatypes = {col["name"]: col.get("dataType", "string") for col in columns_metadata}
 
     df = pd.DataFrame(rows, columns=columns)
 
     # Convert columns to appropriate types
     for col, dtype in datatypes.items():
-        if dtype == 'date' or dtype == 'datetime':
-            df[col] = pd.to_datetime(df[col], errors='coerce')
-        elif dtype == 'integer':
-            df[col] = pd.to_numeric(df[col], errors='coerce').astype('Int64')
-        elif dtype == 'float' or dtype == 'double' or dtype == 'number':
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-        elif dtype == 'boolean':
-            df[col] = df[col].map(lambda x: True if x is True or x == 'Y' or x == 'TRUE' else (False if x is False or x == 'N' or x == 'FALSE' else pd.NA))
+        if dtype == "date" or dtype == "datetime":
+            df[col] = pd.to_datetime(df[col], errors="coerce")
+        elif dtype == "integer":
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
+        elif dtype == "float" or dtype == "double" or dtype == "number":
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        elif dtype == "boolean":
+            df[col] = df[col].map(
+                lambda x: True
+                if x is True or x == "Y" or x == "TRUE"
+                else (
+                    False
+                    if x is False or x == "N" or x == "FALSE"
+                    else pd.NA
+                )
+            )
         else:
-            df[col] = df[col].astype('string')
+            df[col] = df[col].astype("string")
 
-    df.attrs['labels'] = dict(zip(columns, labels))
-    return df
+    df.attrs["labels"] = dict(zip(columns, labels))
+    metadata = {k: v for k, v in data.items() if k not in ["columns", "rows", "records"]}
+    return DatasetJSON(df=df, metadata=metadata, columns_metadata=columns_metadata)
 
-# Create a function to convert a dataset in R to datasetJSON format
-# Write a function to write a pandas DataFrame to a datasetJSON file
-# for metadata, if the arg is not specified use a default (i.e, date of json creation put actual)
-import json
-import pandas as pd
-def write_datasetjson(df, file_path, name = None, label = None, datasetJSONVersion = "1.1.0", dbLastModifiedDateTime = None, studyOID = None, metaDataVersionOID = None, metaDataRef = None, itemGroupOID = None):
+
+def write_datasetjson(
+    df,
+    file_path,
+    name=None,
+    label=None,
+    datasetJSONVersion="1.1.0",
+    dbLastModifiedDateTime=None,
+    studyOID=None,
+    metaDataVersionOID=None,
+    metaDataRef=None,
+    itemGroupOID=None,
+):
+    if isinstance(df, DatasetJSON):
+        # Validate datasetJSONVersion from the DatasetJSON.metadata if present
+        metadata_version = None
+        try:
+            if isinstance(df.metadata, dict):
+                metadata_version = df.metadata.get("datasetJSONVersion")
+        except AttributeError:
+            metadata_version = None
+        if metadata_version is not None and metadata_version != "1.1.0":
+            raise ValueError("Only datasetJSON version 1.1.0 is supported.")
+        with open(file_path, "w") as f:
+            json.dump(df.to_dict(), f, indent=4)
+        return
 
     if datasetJSONVersion != "1.1.0":
         raise ValueError("Only datasetJSON version 1.1.0 is supported.")
 
     data = {}
-    from datetime import datetime
     data['datasetJSONCreationDateTime'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
     data['datasetJSONVersion'] = datasetJSONVersion
     data['fileOID'] = "generated.by.biojson"
@@ -87,4 +145,3 @@ def write_datasetjson(df, file_path, name = None, label = None, datasetJSONVersi
 
     with open(file_path, 'w') as f:
         json.dump(data, f, indent=4)
-
