@@ -24,7 +24,10 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+  "pandas>=1.5.3,<2.1; python_version<'3.9'",
+  "pandas>=2.0.3,<3.0; python_version>='3.9'",
+]
 
 [project.urls]
 Documentation = "https://github.com/Gero1999/biojson#readme"
