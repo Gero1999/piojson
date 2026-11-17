@@ -14,6 +14,10 @@ python -m pip install .
 
 The distribution and preferred import are `piojson`. Existing `biojson` imports
 remain compatible and use the same implementation and DatasetJSON class.
+If you previously installed this project under the distribution name `biojson`,
+uninstall that old distribution before installing `piojson`; avoid keeping two
+distributions that own the same `biojson` module files. The new distribution
+provides the compatibility imports itself.
 Python 3.8+ is declared; dependency versions are selected for the Python version.
 
 ## Quick start
