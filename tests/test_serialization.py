@@ -28,3 +28,14 @@ class SerializationTests(unittest.TestCase):
             self.assertEqual(data['columns'][0]['dataType'],'datetime')
             self.assertEqual(data['rows'][0][0],'2026-01-02T13:45:12.123456789+02:00')
             self.assertEqual(read_datasetjson(path).df.iloc[0,0],frame.iloc[0,0])
+
+    def test_column_order_follows_metadata_and_is_detached(self):
+        columns=[{'name':'A','label':'A','dataType':'integer'},{'name':'B','label':'B','dataType':'string'}]
+        obj=DatasetJSON(pd.DataFrame({'B':['text'],'A':[42]}),{'datasetJSONVersion':'1.1.0'},columns)
+        payload=obj.to_dict()
+        self.assertEqual(payload['rows'],[[42,'text']])
+        payload['columns'][0]['label']='changed'
+        self.assertEqual(columns[0]['label'],'A')
+        obj.df['extra']=1
+        with self.assertRaisesRegex(ValueError,'match column metadata'):
+            obj.to_dict()
