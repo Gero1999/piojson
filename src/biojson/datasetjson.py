@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import json
 import math
+import os
+import stat
+import tempfile
+from pathlib import Path
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
@@ -139,8 +143,21 @@ def write_datasetjson(
 
 
 def _write_json(payload, file_path):
-    with open(file_path, "w", encoding="utf-8") as stream:
-        json.dump(payload, stream, indent=4, allow_nan=False, ensure_ascii=False)
+    destination = Path(file_path)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=destination.parent,
+                                         prefix="." + destination.name + ".", delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump(payload, stream, indent=4, allow_nan=False, ensure_ascii=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if destination.exists():
+            os.chmod(temporary, stat.S_IMODE(destination.stat().st_mode))
+        os.replace(temporary, destination)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
 
 
 def _json_rows(frame):

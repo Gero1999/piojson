@@ -39,3 +39,11 @@ class SerializationTests(unittest.TestCase):
         obj.df['extra']=1
         with self.assertRaisesRegex(ValueError,'match column metadata'):
             obj.to_dict()
+
+    def test_failed_write_leaves_destination_intact(self):
+        from src.biojson.datasetjson import _write_json
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'data.json';path.write_text('original')
+            with self.assertRaises(TypeError):_write_json({'bad':object()},path)
+            self.assertEqual(path.read_text(),'original')
+            self.assertEqual(list(Path(folder).iterdir()),[path])
