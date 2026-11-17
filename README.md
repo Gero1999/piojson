@@ -115,5 +115,4 @@ schema validation cannot establish that a Define-XML reference exists. Database
 modification times are included only when supplied, not inferred from export time.
 
 Build metadata uses the PEP 621 license table to remain compatible with build
-backends available on Python 3.8. Local verification currently uses Python 3.12;
-this does not claim a completed runtime test matrix for every advertised version.
+backends available on Python 3.8. 
