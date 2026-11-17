@@ -40,12 +40,14 @@ class DatasetJSON:
         data["rows"] = _json_rows(df_to_write)
         return data
 
-def read_datasetjson(file_path, *, errors="raise"):
+def read_datasetjson(file_path, *, errors="raise", schema_validate=False):
     if errors not in {"raise", "coerce"}:
         raise ValueError("errors must be raise or coerce")
     with open(file_path, "r", encoding="utf-8") as f:
         data = json.load(f, parse_constant=_reject_constant, object_pairs_hook=_unique_keys)
     _validate_structure(data)
+    if schema_validate:
+        validate_datasetjson(data)
 
     columns_metadata = data["columns"]
     columns = [col["name"] for col in columns_metadata]
@@ -74,6 +76,7 @@ def write_datasetjson(
     metaDataVersionOID=None,
     metaDataRef=None,
     itemGroupOID=None,
+    schema_validate=True,
 ):
     if isinstance(df, DatasetJSON):
         # Validate datasetJSONVersion from the DatasetJSON.metadata if present
@@ -85,7 +88,10 @@ def write_datasetjson(
             metadata_version = None
         if metadata_version is not None and metadata_version != "1.1.0":
             raise ValueError("Only datasetJSON version 1.1.0 is supported.")
-        _write_json(df.to_dict(), file_path)
+        payload = df.to_dict()
+        if schema_validate:
+            validate_datasetjson(payload)
+        _write_json(payload, file_path)
         return
 
     if datasetJSONVersion != "1.1.0":
@@ -141,7 +147,10 @@ def write_datasetjson(
 
     metadata = {key: value for key, value in data.items() if key not in {"columns", "rows", "records"}}
     document = DatasetJSON(df_to_write, metadata, columns)
-    _write_json(document.to_dict(), file_path)
+    payload = document.to_dict()
+    if schema_validate:
+        validate_datasetjson(payload)
+    _write_json(payload, file_path)
 
 
 def _write_json(payload, file_path):
@@ -264,3 +273,36 @@ def _convert_column(series, dtype, errors):
         clean = [pd.NaT if value is pd.NA else value for value in values]
         return pd.Series(clean, index=series.index, name=series.name)
     return pd.Series(values, index=series.index, dtype="string", name=series.name)
+
+
+def validate_datasetjson(document):
+    """Validate structure, the pinned official v1.1 schema and typed cells offline.
+
+    Raises ValueError with a structural path, without logging document values.
+    Returns None on success. The package supports the 1.1.0 document version.
+    """
+    from importlib import resources
+    from jsonschema import Draft201909Validator, FormatChecker
+    data = document.to_dict() if isinstance(document, DatasetJSON) else document
+    _validate_structure(data)
+    schema = json.loads(resources.read_text(__package__ + ".schemas", "dataset-1.1.schema.json", encoding="utf-8"))
+    validator = Draft201909Validator(schema, format_checker=FormatChecker())
+    error = next(validator.iter_errors(data), None)
+    if error is not None:
+        path = "/" + "/".join(str(part) for part in error.absolute_path)
+        raise ValueError("Dataset-JSON schema violation at " + path + " (" + str(error.validator) + ")")
+    for index, column in enumerate(data["columns"]):
+        dtype = column["dataType"]
+        for row, values in enumerate(data["rows"]):
+            value = values[index]
+            if value is None:
+                continue
+            valid = isinstance(value, str)
+            if dtype == "integer":
+                valid = isinstance(value, int) and not isinstance(value, bool)
+            elif dtype in {"decimal", "float", "double"}:
+                valid = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+            elif dtype == "boolean":
+                valid = isinstance(value, bool)
+            if not valid:
+                raise ValueError(f"Column {column['name']!r}, row {row + 1}: cell does not match {dtype}")
