@@ -24,9 +24,9 @@ class DatasetJSON:
         datatypes = {col["name"]: col.get("dataType", "string") for col in self.columns_metadata}
         for col, dtype in datatypes.items():
             if dtype == "date":
-                df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%d")
+                df_to_write[col] = _temporal_values(df_to_write[col], "date")
             elif dtype == "datetime":
-                df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%S")
+                df_to_write[col] = _temporal_values(df_to_write[col], "datetime")
         data["rows"] = _json_rows(df_to_write)
         return data
 
@@ -122,8 +122,8 @@ def write_datasetjson(
         # Determine dataType for JSON schema
         dtype = df[col].dtype
         if pd.api.types.is_datetime64_any_dtype(dtype):
-            dataType = 'date'
-            df_to_write[col] = df_to_write[col].dt.strftime("%Y-%m-%d")
+            dataType = 'datetime'
+            df_to_write[col] = _temporal_values(df_to_write[col], 'datetime')
         elif pd.api.types.is_integer_dtype(dtype):
             dataType = 'integer'
             # Ensure integers remain as int, not string
@@ -160,3 +160,12 @@ def _json_rows(frame):
             raise ValueError("Non-finite numeric value cannot be written as JSON")
         return value
     return [[scalar(value) for value in row] for row in frame.itertuples(index=False, name=None)]
+
+
+def _temporal_values(series, kind):
+    def format_value(value):
+        if pd.isna(value):
+            return None
+        stamp = pd.Timestamp(value)
+        return stamp.date().isoformat() if kind == "date" else stamp.isoformat()
+    return series.map(format_value)

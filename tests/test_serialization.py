@@ -19,3 +19,12 @@ class SerializationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             with self.assertRaisesRegex(ValueError,'Non-finite'):
                 write_datasetjson(pd.DataFrame({'x':[float('inf')]}),Path(folder)/'data.json')
+
+    def test_datetime_preserves_offset_and_fraction(self):
+        frame=pd.DataFrame({'when':pd.to_datetime(['2026-01-02T13:45:12.123456789+02:00'])})
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'data.json';write_datasetjson(frame,path)
+            data=json.loads(path.read_text())
+            self.assertEqual(data['columns'][0]['dataType'],'datetime')
+            self.assertEqual(data['rows'][0][0],'2026-01-02T13:45:12.123456789+02:00')
+            self.assertEqual(read_datasetjson(path).df.iloc[0,0],frame.iloc[0,0])
