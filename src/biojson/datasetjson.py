@@ -35,7 +35,9 @@ class DatasetJSON:
         data["rows"] = _json_rows(df_to_write)
         return data
 
-def read_datasetjson(file_path):
+def read_datasetjson(file_path, *, errors="raise"):
+    if errors not in {"raise", "coerce"}:
+        raise ValueError("errors must be raise or coerce")
     with open(file_path, "r", encoding="utf-8") as f:
         data = json.load(f, parse_constant=_reject_constant, object_pairs_hook=_unique_keys)
     _validate_structure(data)
@@ -48,26 +50,8 @@ def read_datasetjson(file_path):
 
     df = pd.DataFrame(rows, columns=columns)
 
-    # Convert columns to appropriate types
     for col, dtype in datatypes.items():
-        if dtype == "date" or dtype == "datetime":
-            df[col] = pd.to_datetime(df[col], errors="coerce")
-        elif dtype == "integer":
-            df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
-        elif dtype == "float" or dtype == "double" or dtype == "number":
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-        elif dtype == "boolean":
-            df[col] = df[col].map(
-                lambda x: True
-                if x is True or x == "Y" or x == "TRUE"
-                else (
-                    False
-                    if x is False or x == "N" or x == "FALSE"
-                    else pd.NA
-                )
-            )
-        else:
-            df[col] = df[col].astype("string")
+        df[col] = _convert_column(df[col], dtype, errors)
 
     df.attrs["labels"] = dict(zip(columns, labels))
     metadata = {k: v for k, v in data.items() if k not in ["columns", "rows", "records"]}
@@ -215,3 +199,46 @@ def _validate_structure(data):
     records = data.get("records")
     if isinstance(records, bool) or not isinstance(records, int) or records != len(rows):
         raise ValueError("records must equal the number of rows")
+
+
+def _convert_column(series, dtype, errors):
+    def convert(value):
+        if value is None or value is pd.NA:
+            return pd.NA
+        if dtype in {"date", "datetime"}:
+            return pd.Timestamp(value)
+        if dtype == "boolean":
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, str) and value.upper() in {"Y", "TRUE", "N", "FALSE"}:
+                return value.upper() in {"Y", "TRUE"}
+            raise ValueError("expected a boolean")
+        if dtype in {"integer", "decimal", "float", "double", "number"}:
+            if isinstance(value, bool):
+                raise ValueError("boolean is not a numeric value")
+            numeric = pd.to_numeric(value, errors="raise")
+            if not math.isfinite(numeric) or (dtype == "integer" and numeric != int(numeric)):
+                raise ValueError("invalid finite number")
+            return int(numeric) if dtype == "integer" else numeric
+        if not isinstance(value, str):
+            raise ValueError("expected a string")
+        return value
+    values = []
+    for row, value in enumerate(series):
+        try:
+            values.append(convert(value))
+        except (ValueError, TypeError, OverflowError) as exc:
+            if errors == "raise":
+                raise ValueError(f"Column {series.name!r}, row {row + 1}: invalid {dtype} value") from exc
+            values.append(pd.NA)
+    if dtype == "integer":
+        return pd.Series(values, index=series.index, dtype="Int64", name=series.name)
+    if dtype == "boolean":
+        return pd.Series(values, index=series.index, dtype="boolean", name=series.name)
+    if dtype in {"decimal", "float", "double", "number"}:
+        return pd.Series(values, index=series.index, dtype="Float64", name=series.name)
+    if dtype in {"date", "datetime"}:
+        # Preserve individual offsets if values cannot share one datetime dtype.
+        clean = [pd.NaT if value is pd.NA else value for value in values]
+        return pd.Series(clean, index=series.index, name=series.name)
+    return pd.Series(values, index=series.index, dtype="string", name=series.name)
