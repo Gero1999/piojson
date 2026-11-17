@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import json
+import math
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
@@ -24,7 +27,7 @@ class DatasetJSON:
                 df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%d")
             elif dtype == "datetime":
                 df_to_write[col] = pd.to_datetime(df_to_write[col], errors="coerce").dt.strftime("%Y-%m-%dT%H:%M:%S")
-        data["rows"] = df_to_write.where(pd.notnull(df_to_write), None).values.tolist()
+        data["rows"] = _json_rows(df_to_write)
         return data
 
 def read_datasetjson(file_path):
@@ -88,7 +91,7 @@ def write_datasetjson(
         if metadata_version is not None and metadata_version != "1.1.0":
             raise ValueError("Only datasetJSON version 1.1.0 is supported.")
         with open(file_path, "w") as f:
-            json.dump(df.to_dict(), f, indent=4)
+            json.dump(df.to_dict(), f, indent=4, allow_nan=False)
         return
 
     if datasetJSONVersion != "1.1.0":
@@ -141,7 +144,19 @@ def write_datasetjson(
         columns.append(col_meta)
     data['columns'] = columns
 
-    data['rows'] = df_to_write.where(pd.notnull(df_to_write), None).values.tolist()
+    data['rows'] = _json_rows(df_to_write)
 
     with open(file_path, 'w') as f:
-        json.dump(data, f, indent=4)
+        json.dump(data, f, indent=4, allow_nan=False)
+
+
+def _json_rows(frame):
+    def scalar(value):
+        if pd.isna(value):
+            return None
+        if hasattr(value, "item"):
+            value = value.item()
+        if isinstance(value, float) and not math.isfinite(value):
+            raise ValueError("Non-finite numeric value cannot be written as JSON")
+        return value
+    return [[scalar(value) for value in row] for row in frame.itertuples(index=False, name=None)]
