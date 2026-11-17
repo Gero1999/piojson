@@ -30,7 +30,7 @@ def _check_root(root):
             raise ValueError('Missing ODM root attribute: ' + key)
 
 
-def read_odm(file_path, *, max_bytes=64 * 1024 * 1024):
+def read_odm(file_path, *, max_bytes=64 * 1024 * 1024, schema_validate=True):
     """Read ODM XML without DTDs/entities; full XSD validation is separate.
 
     max_bytes bounds parser input (default 64 MiB). Namespace, attributes, child
@@ -47,15 +47,23 @@ def read_odm(file_path, *, max_bytes=64 * 1024 * 1024):
         forbid_dtd=True, forbid_entities=True, forbid_external=True)
     root = ET.fromstring(data, parser=parser)
     _check_root(root)
-    return ODMDocument(root)
+    document = ODMDocument(root)
+    if schema_validate:
+        validate_odm(document)
+    return document
 
 
-def write_odm(document, file_path):
+def write_odm(document, file_path, *, schema_validate=True):
     """Atomically write a detached ODMDocument as UTF-8 XML."""
     if not isinstance(document, ODMDocument):
         raise TypeError('Expected an ODMDocument')
     root = document.to_element()
     _check_root(root)
+    # Check well-formedness even when full schema validation is disabled.
+    parser = DefusedXMLParser(forbid_dtd=True, forbid_entities=True, forbid_external=True)
+    ET.fromstring(ET.tostring(root, encoding="utf-8"), parser=parser)
+    if schema_validate:
+        validate_odm(document)
     destination = Path(file_path)
     temporary = None
     try:
@@ -71,3 +79,36 @@ def write_odm(document, file_path):
     finally:
         if temporary is not None and temporary.exists():
             temporary.unlink()
+
+
+def validate_odm(document):
+    """Validate an ODMDocument against the pinned official ODM 2.0 XSD bundle.
+
+    All schema imports resolve only inside the bundled directory; validation
+    never fetches remote resources. XSD validation is not Schematron checking
+    or a clinical/business-rule certification.
+    """
+    from lxml import etree
+    from urllib.parse import urlsplit, unquote
+    if not isinstance(document, ODMDocument):
+        raise TypeError("Expected an ODMDocument")
+    _check_root(document.root)
+    directory = Path(__file__).parent / "schemas" / "odm"
+    allowed = {path.name for path in directory.glob("*.xsd")}
+    class LocalSchemas(etree.Resolver):
+        def resolve(self, url, public_id, context):
+            name = Path(unquote(urlsplit(url).path)).name
+            if name not in allowed:
+                raise ValueError("Schema resource is not in the offline bundle")
+            return self.resolve_filename(str(directory / name), context)
+    parser = etree.XMLParser(resolve_entities=False, load_dtd=False, no_network=True)
+    parser.resolvers.add(LocalSchemas())
+    schema = etree.XMLSchema(etree.parse(str(directory / "ODM.xsd"), parser))
+    try:
+        root = etree.fromstring(ET.tostring(document.root, encoding="utf-8"),
+            etree.XMLParser(resolve_entities=False, load_dtd=False, no_network=True))
+    except etree.XMLSyntaxError:
+        raise ValueError("ODM document is not well-formed XML") from None
+    if not schema.validate(root):
+        error = schema.error_log.last_error
+        raise ValueError("ODM schema validation failed at " + (error.path or "/ODM"))

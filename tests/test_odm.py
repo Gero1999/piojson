@@ -17,7 +17,7 @@ class ODMTests(unittest.TestCase):
             self.assertEqual(doc.root.get('FileOID'),'MOCK')
     def test_entities_and_size_limit(self):
         with tempfile.TemporaryDirectory() as folder:
-            p=Path(folder)/'bad.xml';p.write_text('<!DOCTYPE ODM [<!ENTITY x SYSTEM "file:///etc/passwd">]>'+XML)
+            p=Path(folder)/'bad.xml';p.write_text('<!DOCTYPE ODM [<!ENTITY x SYSTEM "file:///nonexistent-synthetic-fixture">]>'+XML)
             with self.assertRaises(DefusedXmlException):read_odm(p)
             p.write_text(XML)
             with self.assertRaisesRegex(ValueError,'max_bytes'):read_odm(p,max_bytes=10)

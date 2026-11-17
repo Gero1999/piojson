@@ -11,3 +11,11 @@ Schema validation is supplemented with record counts, unique columns, row width,
 column/cell types and complete ISO temporal values. This is a software validation
 contract, not CDISC certification. Readers always check structure and values;
 full schema checks are opt-in on read and enabled by default on write.
+
+ODM 2.0 XSD files: cdisc-org/DataExchange-ODM, commit
+6cb00a9cb38f245069758a7c5a6823cdf3ea48be, schema/*.xsd.
+Source: https://github.com/cdisc-org/DataExchange-ODM/tree/6cb00a9cb38f245069758a7c5a6823cdf3ea48be/schema
+The unmodified files and MIT notice are bundled under schemas/odm/.
+Imports are resolved against this local bundle only. No online schema lookup
+is performed. XSD checks do not cover separate Schematron rules or establish
+clinical correctness, regulatory acceptance or certification.
