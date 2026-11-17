@@ -47,3 +47,14 @@ class SerializationTests(unittest.TestCase):
             with self.assertRaises(TypeError):_write_json({'bad':object()},path)
             self.assertEqual(path.read_text(),'original')
             self.assertEqual(list(Path(folder).iterdir()),[path])
+
+    def test_metadata_is_truthful_and_creation_is_timezone_aware(self):
+        from src.biojson.__about__ import __version__
+        from datetime import datetime
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'data.json';write_datasetjson(pd.DataFrame({'x':[1]}),path)
+            data=json.loads(path.read_text())
+        self.assertNotIn('studyOID',data)
+        self.assertNotIn('metaDataRef',data)
+        self.assertEqual(data['sourceSystem']['version'],__version__)
+        self.assertIsNotNone(datetime.fromisoformat(data['datasetJSONCreationDateTime']).tzinfo)
