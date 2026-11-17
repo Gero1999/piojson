@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import os
 import stat
 import tempfile
 from pathlib import Path
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, time
 from .__about__ import __version__
 
 import pandas as pd
@@ -236,8 +237,9 @@ def _convert_column(series, dtype, errors):
     def convert(value):
         if value is None or value is pd.NA:
             return pd.NA
-        if dtype in {"date", "datetime"}:
-            return pd.Timestamp(value)
+        if dtype in {"date", "datetime", "time"}:
+            _validate_temporal(value, dtype)
+            return value if dtype == "time" else pd.Timestamp(value)
         if dtype == "boolean":
             if isinstance(value, bool):
                 return value
@@ -304,5 +306,24 @@ def validate_datasetjson(document):
                 valid = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
             elif dtype == "boolean":
                 valid = isinstance(value, bool)
+            if valid and dtype in {"date", "datetime", "time"}:
+                try:
+                    _validate_temporal(value, dtype)
+                except (ValueError, TypeError):
+                    valid = False
             if not valid:
                 raise ValueError(f"Column {column['name']!r}, row {row + 1}: cell does not match {dtype}")
+
+
+def _validate_temporal(value, dtype):
+    day = r"\d{4}-\d{2}-\d{2}"
+    clock = r"\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?"
+    pattern = day if dtype == "date" else clock if dtype == "time" else day + "T" + clock
+    if not isinstance(value, str) or re.fullmatch(pattern, value) is None:
+        raise ValueError("Expected an ISO 8601 " + dtype)
+    if dtype == "time":
+        time.fromisoformat(value.replace("Z", "+00:00"))
+    else:
+        stamp = pd.Timestamp(value)
+        if pd.isna(stamp):
+            raise ValueError("Invalid timestamp")
