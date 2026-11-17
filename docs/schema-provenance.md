@@ -19,3 +19,8 @@ The unmodified files and MIT notice are bundled under schemas/odm/.
 Imports are resolved against this local bundle only. No online schema lookup
 is performed. XSD checks do not cover separate Schematron rules or establish
 clinical correctness, regulatory acceptance or certification.
+
+The ODM XHTML file is explicitly derived from W3C via FHIR. All embedded
+copyright/modification notices are retained. The bundle also includes W3C and
+HL7/FHIR license texts and THIRD-PARTY-NOTICES.txt; the CDISC MIT notice does not
+replace those upstream notices.
