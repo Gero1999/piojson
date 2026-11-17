@@ -24,3 +24,7 @@ class SchemaTests(unittest.TestCase):
                 path=Path(folder)/'data.json';path.write_text(json.dumps(data))
                 with self.subTest(value=value),self.assertRaisesRegex(ValueError,'row 1'):
                     read_datasetjson(path)
+
+    def test_metadata_dates_obey_calendar_not_just_schema_pattern(self):
+        data=self.document();data['dbLastModifiedDateTime']='2026-02-30T12:00:00Z'
+        with self.assertRaisesRegex(ValueError,'timestamp metadata'):validate_datasetjson(data)

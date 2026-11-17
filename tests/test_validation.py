@@ -29,3 +29,7 @@ class ValidationTests(unittest.TestCase):
     def test_large_integer_with_missing_value_retains_precision(self):
         data=deepcopy(BASE);data['rows']=[[9007199254740993],[None]];data['records']=2
         self.assertEqual(self.read(data).df.iloc[0,0],9007199254740993)
+
+    def test_out_of_range_integer_has_row_context(self):
+        data=deepcopy(BASE);data['rows']=[[2**64]]
+        with self.assertRaisesRegex(ValueError,"Column 'X', row 1"):self.read(data)

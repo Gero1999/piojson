@@ -252,6 +252,8 @@ def _convert_column(series, dtype, errors):
             numeric = pd.to_numeric(value, errors="raise")
             if not math.isfinite(numeric) or (dtype == "integer" and numeric != int(numeric)):
                 raise ValueError("invalid finite number")
+            if dtype == "integer" and not -(2 ** 63) <= numeric < 2 ** 63:
+                raise ValueError("integer is outside the pandas Int64 range")
             return int(numeric) if dtype == "integer" else numeric
         if not isinstance(value, str):
             raise ValueError("expected a string")
@@ -273,6 +275,8 @@ def _convert_column(series, dtype, errors):
     if dtype in {"date", "datetime"}:
         # Preserve individual offsets if values cannot share one datetime dtype.
         clean = [pd.NaT if value is pd.NA else value for value in values]
+        if not clean:
+            return pd.Series([], index=series.index, dtype="datetime64[ns]", name=series.name)
         return pd.Series(clean, index=series.index, name=series.name)
     return pd.Series(values, index=series.index, dtype="string", name=series.name)
 
@@ -293,6 +297,12 @@ def validate_datasetjson(document):
     if error is not None:
         path = "/" + "/".join(str(part) for part in error.absolute_path)
         raise ValueError("Dataset-JSON schema violation at " + path + " (" + str(error.validator) + ")")
+    for field in ("datasetJSONCreationDateTime", "dbLastModifiedDateTime"):
+        if field in data:
+            try:
+                _validate_temporal(data[field], "datetime")
+            except (ValueError, TypeError):
+                raise ValueError("Invalid timestamp metadata: " + field) from None
     for index, column in enumerate(data["columns"]):
         dtype = column["dataType"]
         for row, values in enumerate(data["rows"]):
