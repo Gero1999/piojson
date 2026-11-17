@@ -1,21 +1,84 @@
 # piojson: pharma & bio JSON standards
 
+![piojson logo](docs/static/piojson-logo.png)
 
------
-
-
-![piojson-logo](docs/static/piojson-logo.png)
-
-
-## Table of Contents
-
-- [Installation](#installation)
-- [License](#license)
+Read, edit, validate and write **CDISC Dataset-JSON 1.1.0** with pandas.
+This is a development package; install from this checkout rather than assuming
+that a public package-index release is available.
 
 ## Installation
 
-Standard installations are still not available. The project is in early development.
+```sh
+python -m pip install .
+```
 
-## License
+The distribution and preferred import are `piojson`. Existing `biojson` imports
+remain compatible and use the same implementation and DatasetJSON class.
+Python 3.8+ is declared; dependency versions are selected for the Python version.
 
-`biojson` is distributed under the terms of the Apache 2.0 license.
+## Quick start
+
+```python
+import pandas as pd
+from piojson import read_datasetjson, write_datasetjson, validate_datasetjson
+
+frame = pd.DataFrame({"SUBJID": ["MOCK-001", "MOCK-002"],
+                      "AGE": pd.Series([35, None], dtype="Int64")})
+frame.attrs["labels"] = {"SUBJID": "Synthetic subject", "AGE": "Age"}
+write_datasetjson(frame, "dm.json", name="DM", label="Synthetic demographics",
+                  studyOID="MOCK-STUDY", itemGroupOID="IG.DM")
+dataset = read_datasetjson("dm.json", schema_validate=True)
+dataset.df.loc[0, "AGE"] = 36
+dataset.metadata["label"] = "Edited synthetic demographics"
+validate_datasetjson(dataset)
+write_datasetjson(dataset, "dm-edited.json")
+```
+
+Examples use generated demonstration data. They require no external service.
+
+## Validation and round trips
+
+- Readers check version, record count, row widths, unique columns and typed
+  values. Invalid values raise an error naming the column and one-based row.
+  `errors="coerce"` explicitly converts bad values to missing; schema checking
+  can still reject the original invalid input when enabled.
+- `schema_validate=True` opts into official schema checking on read; writers
+  enable it by default. `validate_datasetjson()` runs schema and cell checks.
+  The pinned schema and its MIT notice are bundled for offline use. See
+  [schema provenance](docs/schema-provenance.md).
+- `DatasetJSON` retains dataset and column metadata. Values are written in the
+  column-metadata order; missing, extra and duplicate columns are rejected.
+  Copies of output metadata do not share mutable lists with the document.
+- Nulls use JSON `null`. Nullable integers and booleans are supported. Integers
+  use pandas Int64; floating/decimal columns use pandas nullable floating point,
+  not arbitrary-precision decimal arithmetic.
+- Datetime columns retain time, offsets and fractional seconds. Explicit date
+  metadata produces dates. Mixed timezones can produce object-dtype columns.
+  ISO date/datetime/time strings are checked rather than guessed from numbers.
+- Writes are UTF-8 and atomic on the destination filesystem. Failures leave an
+  existing file intact. Creation timestamps are UTC; imported metadata is
+  preserved apart from regenerated creation time and record counts. Optional
+  study identifiers and metadata references are not fabricated when omitted.
+
+Schema checks are software checks, not CDISC certification. Only version 1.1.0
+is supported by the public read/write API. Other formats and large-file streaming
+need separate support.
+
+## Development checks
+
+```sh
+python -m pip install -e .
+python -m unittest discover -s tests -v
+python -m pip install build
+python -m build
+```
+
+After installing the wheel, run `tools/check_installed.py` from outside the
+checkout to verify public imports, bundled schema access and a null round trip.
+
+## Contributing and license
+
+Report bugs and propose formats in the [issue tracker](https://github.com/Gero1999/piojson/issues).
+Include a small synthetic example, expected behavior and package versions.
+The project uses [Apache 2.0](LICENSE); bundled third-party schemas retain their
+own accompanying notices.
