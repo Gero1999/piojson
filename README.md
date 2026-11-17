@@ -108,3 +108,8 @@ UTF-8 XML. Namespace prefixes, whitespace formatting, XML declarations and
 processing instructions are not promised byte-identical round trips.
 XSD validity does not replace Schematron rules, reference reconciliation,
 clinical consistency checks or regulatory review.
+
+Raw DataFrame exports use placeholder name/label/itemGroupOID values when those
+required fields are omitted. Supply actual identifiers for real interchange;
+schema validation cannot establish that a Define-XML reference exists. Database
+modification times are included only when supplied, not inferred from export time.
