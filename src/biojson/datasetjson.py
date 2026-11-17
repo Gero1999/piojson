@@ -36,8 +36,9 @@ class DatasetJSON:
         return data
 
 def read_datasetjson(file_path):
-    with open(file_path, "r") as f:
-        data = json.load(f)
+    with open(file_path, "r", encoding="utf-8") as f:
+        data = json.load(f, parse_constant=_reject_constant, object_pairs_hook=_unique_keys)
+    _validate_structure(data)
 
     columns_metadata = data["columns"]
     columns = [col["name"] for col in columns_metadata]
@@ -174,3 +175,43 @@ def _temporal_values(series, kind):
         stamp = pd.Timestamp(value)
         return stamp.date().isoformat() if kind == "date" else stamp.isoformat()
     return series.map(format_value)
+
+
+def _reject_constant(value):
+    raise ValueError("Non-standard JSON constant: " + value)
+
+
+def _unique_keys(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate JSON property: " + key)
+        result[key] = value
+    return result
+
+
+def _validate_structure(data):
+    if not isinstance(data, dict):
+        raise ValueError("Dataset-JSON must be an object")
+    if data.get("datasetJSONVersion") != "1.1.0":
+        raise ValueError("Only datasetJSON version 1.1.0 is supported.")
+    columns, rows = data.get("columns"), data.get("rows")
+    if not isinstance(columns, list) or not isinstance(rows, list):
+        raise ValueError("columns and rows must be arrays")
+    names = []
+    allowed = {"string", "integer", "decimal", "float", "double", "number", "boolean", "date", "datetime", "time", "URI"}
+    for index, column in enumerate(columns):
+        if not isinstance(column, dict) or not isinstance(column.get("name"), str) or not column["name"]:
+            raise ValueError("Invalid column name at position " + str(index))
+        if not isinstance(column.get("label"), str):
+            raise ValueError("Missing or invalid label for column " + column["name"])
+        if column.get("dataType", "string") not in allowed:
+            raise ValueError("Unknown dataType for column " + column["name"])
+        names.append(column["name"])
+    if len(set(names)) != len(names):
+        raise ValueError("Column names must be unique")
+    if any(not isinstance(row, list) or len(row) != len(columns) for row in rows):
+        raise ValueError("Every row must match the declared column count")
+    records = data.get("records")
+    if isinstance(records, bool) or not isinstance(records, int) or records != len(rows):
+        raise ValueError("records must equal the number of rows")
