@@ -69,3 +69,8 @@ class SerializationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             path=Path(folder)/'data.json';write_datasetjson(pd.DataFrame({'x':[1]}),path)
             self.assertNotIn('dbLastModifiedDateTime',json.loads(path.read_text()))
+
+    def test_temporal_metadata_does_not_turn_numbers_into_epoch_times(self):
+        obj=DatasetJSON(pd.DataFrame({'x':[123]}),{'datasetJSONVersion':'1.1.0'},
+          [{'name':'x','label':'X','dataType':'datetime'}])
+        with self.assertRaisesRegex(ValueError,'not numeric timestamps'):obj.to_dict()

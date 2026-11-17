@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime, timezone, time
+from datetime import datetime, timezone, time, date
 from .__about__ import __version__
 
 import pandas as pd
@@ -202,6 +202,10 @@ def _temporal_values(series, kind):
     def format_value(value):
         if pd.isna(value):
             return None
+        if isinstance(value, str):
+            _validate_temporal(value, kind)
+        elif not isinstance(value, (datetime, date, pd.Timestamp)) and not pd.api.types.is_datetime64_dtype(type(value)):
+            raise ValueError("Temporal columns require ISO strings or datetime values, not numeric timestamps")
         stamp = pd.Timestamp(value)
         return stamp.date().isoformat() if kind == "date" else stamp.isoformat()
     return series.map(format_value)
