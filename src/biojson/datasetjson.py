@@ -8,7 +8,8 @@ import tempfile
 from pathlib import Path
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
+from .__about__ import __version__
 
 import pandas as pd
 
@@ -21,7 +22,7 @@ class DatasetJSON:
 
     def to_dict(self):
         data = deepcopy(self.metadata)
-        data["datasetJSONCreationDateTime"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+        data["datasetJSONCreationDateTime"] = datetime.now(timezone.utc).isoformat()
         data["records"] = len(self.df)
         data["columns"] = deepcopy(self.columns_metadata)
         names = [column["name"] for column in self.columns_metadata]
@@ -91,18 +92,19 @@ def write_datasetjson(
         raise ValueError("Only datasetJSON version 1.1.0 is supported.")
 
     data = {}
-    data['datasetJSONCreationDateTime'] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    data['datasetJSONCreationDateTime'] = datetime.now(timezone.utc).isoformat()
     data['datasetJSONVersion'] = datasetJSONVersion
-    data['fileOID'] = "generated.by.biojson"
-    data['dbLastModifiedDateTime'] = dbLastModifiedDateTime if dbLastModifiedDateTime else datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-    data['originator'] = "biojson"
+    data['dbLastModifiedDateTime'] = dbLastModifiedDateTime if dbLastModifiedDateTime else datetime.now(timezone.utc).isoformat()
     data['sourceSystem'] = {
         "name": "biojson",
-        "version": "1.0.0"
+        "version": __version__
     }
-    data['studyOID'] = studyOID if studyOID else "unknown.study"
-    data['metaDataVersionOID'] = metaDataVersionOID if metaDataVersionOID else "unknown.mdv"
-    data['metaDataRef'] = metaDataRef if metaDataRef else "http://unknown.metadata.ref"
+    if studyOID is not None:
+        data["studyOID"] = studyOID
+    if metaDataVersionOID is not None:
+        data["metaDataVersionOID"] = metaDataVersionOID
+    if metaDataRef is not None:
+        data["metaDataRef"] = metaDataRef
     data['itemGroupOID'] = itemGroupOID if itemGroupOID else "IG.UNKNOWN"
     data['records'] = len(df)
     data['name'] = name if name else "UNKNOWN"
