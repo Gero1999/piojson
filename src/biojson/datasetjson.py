@@ -19,8 +19,13 @@ class DatasetJSON:
         data = deepcopy(self.metadata)
         data["datasetJSONCreationDateTime"] = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
         data["records"] = len(self.df)
-        data["columns"] = self.columns_metadata
-        df_to_write = self.df.copy()
+        data["columns"] = deepcopy(self.columns_metadata)
+        names = [column["name"] for column in self.columns_metadata]
+        if len(set(names)) != len(names) or not self.df.columns.is_unique:
+            raise ValueError("Column names must be unique")
+        if set(names) != set(self.df.columns):
+            raise ValueError("DataFrame columns must match column metadata exactly")
+        df_to_write = self.df.loc[:, names].copy()
         datatypes = {col["name"]: col.get("dataType", "string") for col in self.columns_metadata}
         for col, dtype in datatypes.items():
             if dtype == "date":
