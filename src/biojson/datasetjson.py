@@ -48,7 +48,7 @@ def read_datasetjson(file_path, *, errors="raise"):
     labels = [col["label"] for col in columns_metadata]
     datatypes = {col["name"]: col.get("dataType", "string") for col in columns_metadata}
 
-    df = pd.DataFrame(rows, columns=columns)
+    df = pd.DataFrame(rows, columns=columns, dtype=object)
 
     for col, dtype in datatypes.items():
         df[col] = _convert_column(df[col], dtype, errors)
@@ -80,8 +80,7 @@ def write_datasetjson(
             metadata_version = None
         if metadata_version is not None and metadata_version != "1.1.0":
             raise ValueError("Only datasetJSON version 1.1.0 is supported.")
-        with open(file_path, "w") as f:
-            json.dump(df.to_dict(), f, indent=4, allow_nan=False)
+        _write_json(df.to_dict(), file_path)
         return
 
     if datasetJSONVersion != "1.1.0":
@@ -134,10 +133,14 @@ def write_datasetjson(
         columns.append(col_meta)
     data['columns'] = columns
 
-    data['rows'] = _json_rows(df_to_write)
+    metadata = {key: value for key, value in data.items() if key not in {"columns", "rows", "records"}}
+    document = DatasetJSON(df_to_write, metadata, columns)
+    _write_json(document.to_dict(), file_path)
 
-    with open(file_path, 'w') as f:
-        json.dump(data, f, indent=4, allow_nan=False)
+
+def _write_json(payload, file_path):
+    with open(file_path, "w", encoding="utf-8") as stream:
+        json.dump(payload, stream, indent=4, allow_nan=False, ensure_ascii=False)
 
 
 def _json_rows(frame):

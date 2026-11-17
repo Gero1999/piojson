@@ -25,3 +25,7 @@ class ValidationTests(unittest.TestCase):
         for value in [1.2,True]:
             data=deepcopy(BASE);data['rows']=[[value]]
             with self.assertRaises(ValueError):self.read(data)
+
+    def test_large_integer_with_missing_value_retains_precision(self):
+        data=deepcopy(BASE);data['rows']=[[9007199254740993],[None]];data['records']=2
+        self.assertEqual(self.read(data).df.iloc[0,0],9007199254740993)
