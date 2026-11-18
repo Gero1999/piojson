@@ -78,3 +78,26 @@ Report bugs and propose formats in the [issue tracker](https://github.com/Gero19
 Include a small synthetic example, expected behavior and package versions.
 The project uses [Apache 2.0](LICENSE). No third-party schemas are bundled.
 Normal Python dependencies retain their own licenses.
+
+## ODM-XML 2.0
+
+```python
+from piojson import read_odm, write_odm
+
+document = read_odm("study.xml")
+root_copy = document.to_element()  # detached copy for inspection
+write_odm(document, "study-copy.xml")
+```
+
+ODM support reads and writes XML trees, retaining clinical data, metadata,
+child order, text, comments and extension elements. It does not flatten ODM
+into pandas or invent an ODM-JSON representation. It supports the official
+`http://www.cdisc.org/ns/odm/v2.0` namespace, not ODM 1.3.2.
+
+Readers and writers perform basic format checks without XSD validation.
+DTDs, entities and external references are rejected. The default input bound is
+64 MiB; change `max_bytes` explicitly for larger trusted inputs. Document-provided schema locations are never fetched. Output is atomic
+UTF-8 XML. Namespace prefixes, whitespace formatting, XML declarations and
+processing instructions are not promised byte-identical round trips.
+The package does not perform standards certification, reference reconciliation,
+clinical consistency checks or regulatory review.
