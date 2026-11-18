@@ -101,3 +101,8 @@ UTF-8 XML. Namespace prefixes, whitespace formatting, XML declarations and
 processing instructions are not promised byte-identical round trips.
 The package does not perform standards certification, reference reconciliation,
 clinical consistency checks or regulatory review.
+
+Raw DataFrame exports use placeholder name/label/itemGroupOID values when those
+required fields are omitted. Supply actual identifiers for real interchange;
+the package does not establish that a Define-XML reference exists. Database
+modification times are included only when supplied, not inferred from export time.

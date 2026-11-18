@@ -58,3 +58,19 @@ class SerializationTests(unittest.TestCase):
         self.assertNotIn('metaDataRef',data)
         self.assertEqual(data['sourceSystem']['version'],__version__)
         self.assertIsNotNone(datetime.fromisoformat(data['datasetJSONCreationDateTime']).tzinfo)
+
+    def test_invalid_writer_inputs_fail_before_touching_output(self):
+        for frame in [pd.DataFrame([[1,2]],columns=['X','X']),pd.DataFrame({1:[1]}),pd.DataFrame({'x':[[1,2]]})]:
+            with tempfile.TemporaryDirectory() as folder:
+                path=Path(folder)/'data.json';path.write_text('keep')
+                with self.assertRaises(ValueError):write_datasetjson(frame,path)
+                self.assertEqual(path.read_text(),'keep')
+    def test_source_modification_time_is_not_invented(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'data.json';write_datasetjson(pd.DataFrame({'x':[1]}),path)
+            self.assertNotIn('dbLastModifiedDateTime',json.loads(path.read_text()))
+
+    def test_temporal_metadata_does_not_turn_numbers_into_epoch_times(self):
+        obj=DatasetJSON(pd.DataFrame({'x':[123]}),{'datasetJSONVersion':'1.1.0'},
+          [{'name':'x','label':'X','dataType':'datetime'}])
+        with self.assertRaisesRegex(ValueError,'not numeric timestamps'):obj.to_dict()
