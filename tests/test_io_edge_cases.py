@@ -26,3 +26,12 @@ class IOEdgeTests(unittest.TestCase):
             self.assertEqual(path.read_text(),'keep')
             self.assertEqual(list(Path(folder).iterdir()),[path])
 
+    def test_invalid_dates_raise_without_a_schema(self):
+        for value in ['','NaT','2026-02-30','20260102']:
+            data={'datasetJSONVersion':'1.1.0','records':1,
+              'columns':[{'name':'X','label':'X','dataType':'date'}],'rows':[[value]]}
+            with tempfile.TemporaryDirectory() as folder:
+                path=Path(folder)/'bad.json';path.write_text(json.dumps(data))
+                with self.subTest(value=value),self.assertRaisesRegex(ValueError,'row 1'):
+                    read_datasetjson(path)
+
