@@ -22,6 +22,22 @@ class ODMTests(unittest.TestCase):
             p.write_text(XML)
             with self.assertRaisesRegex(ValueError,'max_bytes'):read_odm(p,max_bytes=10)
 
+    def test_invalid_file_type_preserves_existing_output(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source=Path(folder)/'source.xml';source.write_text(XML)
+            doc=read_odm(source);doc.root.set('FileType','invalid')
+            with self.assertRaisesRegex(ValueError,'FileType'):write_odm(doc,Path(folder)/'invalid.xml')
+            out=Path(folder)/'out.xml';out.write_text('keep')
+            with self.assertRaises(ValueError):write_odm(doc,out)
+            self.assertEqual(out.read_text(),'keep')
+    def test_external_schema_hint_does_not_fetch_anything(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as folder:
+            p=Path(folder)/'data.xml'
+            p.write_text(XML.replace('FileOID="MOCK"','xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.cdisc.org/ns/odm/v2.0 https://invalid.example/not-fetched.xsd" FileOID="MOCK"'))
+            with patch('socket.socket.connect',side_effect=AssertionError('Network forbidden')):
+                self.assertEqual(read_odm(p).root.get('FileOID'),'MOCK')
+
     def test_malformed_xml_edits_preserve_output(self):
         with tempfile.TemporaryDirectory() as folder:
             source=Path(folder)/'source.xml';source.write_text(XML)
