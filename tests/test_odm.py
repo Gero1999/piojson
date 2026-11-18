@@ -22,12 +22,11 @@ class ODMTests(unittest.TestCase):
             p.write_text(XML)
             with self.assertRaisesRegex(ValueError,'max_bytes'):read_odm(p,max_bytes=10)
 
-    def test_xsd_rejects_invalid_file_type_and_preserves_existing_output(self):
-        from piojson import validate_odm
+    def test_invalid_file_type_preserves_existing_output(self):
         with tempfile.TemporaryDirectory() as folder:
             source=Path(folder)/'source.xml';source.write_text(XML)
             doc=read_odm(source);doc.root.set('FileType','invalid')
-            with self.assertRaisesRegex(ValueError,'schema validation'):validate_odm(doc)
+            with self.assertRaisesRegex(ValueError,'FileType'):write_odm(doc,Path(folder)/'invalid.xml')
             out=Path(folder)/'out.xml';out.write_text('keep')
             with self.assertRaises(ValueError):write_odm(doc,out)
             self.assertEqual(out.read_text(),'keep')

@@ -6,4 +6,5 @@ class PublicAPITests(unittest.TestCase):
     def test_new_import_shares_the_legacy_class(self):
         self.assertIs(piojson.DatasetJSON,DatasetJSON)
         self.assertTrue(callable(piojson.read_datasetjson))
-        self.assertTrue(callable(piojson.validate_datasetjson))
+        self.assertFalse(hasattr(piojson,"validate_datasetjson"))
+        self.assertFalse(hasattr(piojson,"validate_odm"))

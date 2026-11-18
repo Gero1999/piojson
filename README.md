@@ -2,7 +2,7 @@
 
 ![piojson logo](docs/static/piojson-logo.png)
 
-Read, edit, validate and write **CDISC Dataset-JSON 1.1.0** with pandas.
+Read, edit and write **CDISC Dataset-JSON 1.1.0** with pandas.
 This is a development package; install from this checkout rather than assuming
 that a public package-index release is available.
 
@@ -24,32 +24,29 @@ Python 3.8+ is declared; dependency versions are selected for the Python version
 
 ```python
 import pandas as pd
-from piojson import read_datasetjson, write_datasetjson, validate_datasetjson
+from piojson import read_datasetjson, write_datasetjson
 
 frame = pd.DataFrame({"SUBJID": ["MOCK-001", "MOCK-002"],
                       "AGE": pd.Series([35, None], dtype="Int64")})
 frame.attrs["labels"] = {"SUBJID": "Synthetic subject", "AGE": "Age"}
 write_datasetjson(frame, "dm.json", name="DM", label="Synthetic demographics",
                   studyOID="MOCK-STUDY", itemGroupOID="IG.DM")
-dataset = read_datasetjson("dm.json", schema_validate=True)
+dataset = read_datasetjson("dm.json")
 dataset.df.loc[0, "AGE"] = 36
 dataset.metadata["label"] = "Edited synthetic demographics"
-validate_datasetjson(dataset)
 write_datasetjson(dataset, "dm-edited.json")
 ```
 
 Examples use generated demonstration data. They require no external service.
 
-## Validation and round trips
+## Reliable round trips
 
 - Readers check version, record count, row widths, unique columns and typed
   values. Invalid values raise an error naming the column and one-based row.
-  `errors="coerce"` explicitly converts bad values to missing; schema checking
-  can still reject the original invalid input when enabled.
-- `schema_validate=True` opts into official schema checking on read; writers
-  enable it by default. `validate_datasetjson()` runs schema and cell checks.
-  The pinned schema and its MIT notice are bundled for offline use. See
-  [schema provenance](docs/schema-provenance.md).
+  `errors="coerce"` explicitly converts bad values to missing.
+- No schema files, schema validators or automatic standards-conformance checks
+  are included. Input and serialization guards prevent malformed output and
+  accidental data loss; synthetic edge-case tests exercise those behaviors.
 - `DatasetJSON` retains dataset and column metadata. Values are written in the
   column-metadata order; missing, extra and duplicate columns are rejected.
   Copies of output metadata do not share mutable lists with the document.
@@ -64,7 +61,7 @@ Examples use generated demonstration data. They require no external service.
   preserved apart from regenerated creation time and record counts. Optional
   study identifiers and metadata references are not fabricated when omitted.
 
-Schema checks are software checks, not CDISC certification. Only version 1.1.0
+The package does not certify standards compliance. Only version 1.1.0
 is supported by the public read/write API. Other formats and large-file streaming
 need separate support.
 
@@ -78,23 +75,22 @@ python -m build
 ```
 
 After installing the wheel, run `tools/check_installed.py` from outside the
-checkout to verify public imports, bundled schema access and a null round trip.
+checkout to verify public imports and a null round trip.
 
 ## Contributing and license
 
 Report bugs and propose formats in the [issue tracker](https://github.com/Gero1999/piojson/issues).
 Include a small synthetic example, expected behavior and package versions.
-The project uses [Apache 2.0](LICENSE); bundled third-party schemas retain their
-own accompanying notices.
+The project uses [Apache 2.0](LICENSE). No third-party schemas are bundled.
+Normal Python dependencies retain their own licenses.
 
 ## ODM-XML 2.0
 
 ```python
-from piojson import read_odm, validate_odm, write_odm
+from piojson import read_odm, write_odm
 
 document = read_odm("study.xml")
 root_copy = document.to_element()  # detached copy for inspection
-validate_odm(document)
 write_odm(document, "study-copy.xml")
 ```
 
@@ -103,19 +99,17 @@ child order, text, comments and extension elements. It does not flatten ODM
 into pandas or invent an ODM-JSON representation. It supports the official
 `http://www.cdisc.org/ns/odm/v2.0` namespace, not ODM 1.3.2.
 
-Readers and writers validate against the bundled official ODM 2.0 XSDs by
-default; `schema_validate=False` permits structurally checked partial documents.
+Readers and writers perform basic format checks without XSD validation.
 DTDs, entities and external references are rejected. The default input bound is
-64 MiB; change `max_bytes` explicitly for larger trusted inputs. XSD imports
-resolve locally, never from document-provided remote locations. Output is atomic
+64 MiB; change `max_bytes` explicitly for larger trusted inputs. Document-provided schema locations are never fetched. Output is atomic
 UTF-8 XML. Namespace prefixes, whitespace formatting, XML declarations and
 processing instructions are not promised byte-identical round trips.
-XSD validity does not replace Schematron rules, reference reconciliation,
+The package does not perform standards certification, reference reconciliation,
 clinical consistency checks or regulatory review.
 
 Raw DataFrame exports use placeholder name/label/itemGroupOID values when those
 required fields are omitted. Supply actual identifiers for real interchange;
-schema validation cannot establish that a Define-XML reference exists. Database
+the package does not establish that a Define-XML reference exists. Database
 modification times are included only when supplied, not inferred from export time.
 
 Build metadata uses the PEP 621 license table to remain compatible with build
