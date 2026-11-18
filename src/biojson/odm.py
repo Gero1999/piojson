@@ -49,7 +49,8 @@ def read_odm(file_path, *, max_bytes=64 * 1024 * 1024):
         forbid_dtd=True, forbid_entities=True, forbid_external=True)
     root = ET.fromstring(data, parser=parser)
     _check_root(root)
-    return ODMDocument(root)
+    document = ODMDocument(root)
+    return document
 
 
 def write_odm(document, file_path):
@@ -58,6 +59,9 @@ def write_odm(document, file_path):
         raise TypeError('Expected an ODMDocument')
     root = document.to_element()
     _check_root(root)
+    # Reject malformed XML edits before replacing the destination.
+    parser = DefusedXMLParser(forbid_dtd=True, forbid_entities=True, forbid_external=True)
+    ET.fromstring(ET.tostring(root, encoding="utf-8"), parser=parser)
     destination = Path(file_path)
     temporary = None
     try:
