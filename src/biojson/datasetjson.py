@@ -98,7 +98,7 @@ def write_datasetjson(
     data['datasetJSONVersion'] = datasetJSONVersion
     data['dbLastModifiedDateTime'] = dbLastModifiedDateTime if dbLastModifiedDateTime else datetime.now(timezone.utc).isoformat()
     data['sourceSystem'] = {
-        "name": "biojson",
+        "name": "piojson",
         "version": __version__
     }
     if studyOID is not None:
