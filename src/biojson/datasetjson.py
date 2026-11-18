@@ -85,7 +85,8 @@ def write_datasetjson(
             metadata_version = None
         if metadata_version is not None and metadata_version != "1.1.0":
             raise ValueError("Only datasetJSON version 1.1.0 is supported.")
-        _write_json(df.to_dict(), file_path)
+        payload = df.to_dict()
+        _write_json(payload, file_path)
         return
 
     if datasetJSONVersion != "1.1.0":
@@ -114,7 +115,7 @@ def write_datasetjson(
     columns = []
     df_to_write = df.copy()
     for col in df.columns:
-        # Determine dataType for JSON schema
+        # Determine the column metadata type
         dtype = df[col].dtype
         if pd.api.types.is_datetime64_any_dtype(dtype):
             dataType = 'datetime'
@@ -141,7 +142,8 @@ def write_datasetjson(
 
     metadata = {key: value for key, value in data.items() if key not in {"columns", "rows", "records"}}
     document = DatasetJSON(df_to_write, metadata, columns)
-    _write_json(document.to_dict(), file_path)
+    payload = document.to_dict()
+    _write_json(payload, file_path)
 
 
 def _write_json(payload, file_path):
