@@ -35,3 +35,12 @@ class IOEdgeTests(unittest.TestCase):
                 with self.subTest(value=value),self.assertRaisesRegex(ValueError,'row 1'):
                     read_datasetjson(path)
 
+    def test_empty_typed_frame_roundtrips(self):
+        frame=pd.DataFrame({'i':pd.Series([],dtype='Int64'),'b':pd.Series([],dtype='boolean'),
+          's':pd.Series([],dtype='string'),'d':pd.Series([],dtype='datetime64[ns]')})
+        with tempfile.TemporaryDirectory() as folder:
+            path=Path(folder)/'empty.json';write_datasetjson(frame,path)
+            result=read_datasetjson(path)
+        self.assertEqual(result.df.shape,(0,4))
+        self.assertEqual(list(map(str,result.df.dtypes)),list(map(str,frame.dtypes)))
+
