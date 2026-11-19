@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import datetime, timezone, time
+from datetime import datetime, timezone, time, date
 from .__about__ import __version__
 
 import pandas as pd
@@ -22,6 +22,11 @@ class DatasetJSON:
     columns_metadata: list[dict]
 
     def to_dict(self):
+        if not isinstance(self.df, pd.DataFrame) or not isinstance(self.metadata, dict):
+            raise TypeError("DatasetJSON requires a DataFrame and metadata dictionary")
+        if not isinstance(self.columns_metadata, list) or any(not isinstance(column, dict) or
+                not isinstance(column.get("name"), str) for column in self.columns_metadata):
+            raise ValueError("columns_metadata must contain named column dictionaries")
         data = deepcopy(self.metadata)
         data["datasetJSONCreationDateTime"] = datetime.now(timezone.utc).isoformat()
         data["records"] = len(self.df)
@@ -76,6 +81,14 @@ def write_datasetjson(
     metaDataRef=None,
     itemGroupOID=None,
 ):
+    if not isinstance(df, (DatasetJSON, pd.DataFrame)):
+        raise TypeError("Expected a pandas DataFrame or DatasetJSON")
+    if isinstance(df, pd.DataFrame) and (not df.columns.is_unique or
+            any(not isinstance(name, str) or not name for name in df.columns)):
+        raise ValueError("DataFrame column names must be unique nonempty strings")
+    if isinstance(df, pd.DataFrame) and any(not pd.api.types.is_scalar(value)
+            for row in df.itertuples(index=False, name=None) for value in row):
+        raise ValueError("Dataset-JSON cells must contain scalar values")
     if isinstance(df, DatasetJSON):
         # Validate datasetJSONVersion from the DatasetJSON.metadata if present
         metadata_version = None
@@ -96,7 +109,8 @@ def write_datasetjson(
     data = {}
     data['datasetJSONCreationDateTime'] = datetime.now(timezone.utc).isoformat()
     data['datasetJSONVersion'] = datasetJSONVersion
-    data['dbLastModifiedDateTime'] = dbLastModifiedDateTime if dbLastModifiedDateTime else datetime.now(timezone.utc).isoformat()
+    if dbLastModifiedDateTime is not None:
+        data['dbLastModifiedDateTime'] = dbLastModifiedDateTime
     data['sourceSystem'] = {
         "name": "piojson",
         "version": __version__
@@ -181,6 +195,10 @@ def _temporal_values(series, kind):
     def format_value(value):
         if pd.isna(value):
             return None
+        if isinstance(value, str):
+            _validate_temporal(value, kind)
+        elif not isinstance(value, (datetime, date, pd.Timestamp)) and not pd.api.types.is_datetime64_dtype(type(value)):
+            raise ValueError("Temporal columns require ISO strings or datetime values, not numeric timestamps")
         stamp = pd.Timestamp(value)
         return stamp.date().isoformat() if kind == "date" else stamp.isoformat()
     return series.map(format_value)
@@ -214,7 +232,7 @@ def _validate_structure(data):
             raise ValueError("Invalid column name at position " + str(index))
         if not isinstance(column.get("label"), str):
             raise ValueError("Missing or invalid label for column " + column["name"])
-        if column.get("dataType", "string") not in allowed:
+        if not isinstance(column.get("dataType", "string"), str) or column.get("dataType", "string") not in allowed:
             raise ValueError("Unknown dataType for column " + column["name"])
         names.append(column["name"])
     if len(set(names)) != len(names):
